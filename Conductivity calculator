@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conductivity Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: one instrument-panel column. Cell constant card on top, four linked unit groups below. */
+:root {
+  --bg: #f3f5f6;
+  --panel: #ffffff;
+  --ink: #14212b;
+  --muted: #5d6c78;
+  --line: #d5dde2;
+  --accent: #0b6e8a;
+  --accent-soft: #dff1f6;
+  --font-display: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --bad: #b3261e;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10181e; --panel: #17222a; --ink: #e6edf1; --muted: #8fa1ad;
+    --line: #2b3a45; --accent: #4cc3e0; --accent-soft: #15333d; --bad: #ff8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10181e; --panel: #17222a; --ink: #e6edf1; --muted: #8fa1ad;
+  --line: #2b3a45; --accent: #4cc3e0; --accent-soft: #15333d; --bad: #ff8a80;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--font-display); line-height: 1.5;
+}
+main { max-width: 760px; margin: 0 auto; padding: 28px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+h1 { font-size: 1.5rem; font-weight: 600; margin: 0; text-wrap: balance; }
+.sub { margin: 4px 0 0; color: var(--muted); font-size: .95rem; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.card h2 { font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+
+.krow { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.kfield { display: flex; flex-direction: column; gap: 4px; }
+.kfield label { font-size: .85rem; color: var(--muted); }
+.inwrap { display: flex; align-items: stretch; }
+input[type="text"], select {
+  font-family: var(--font-mono); font-size: 1.05rem; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); padding: 8px 10px; border-radius: 6px; min-width: 0;
+}
+input[type="text"] { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
+input[type="text"]:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.kfield input { width: 150px; font-size: 1.25rem; font-weight: 500; }
+.unit { font-family: var(--font-mono); font-size: .95rem; color: var(--muted); white-space: nowrap; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+button {
+  font-family: var(--font-display); font-size: .9rem; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; cursor: pointer;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button.primary { background: var(--accent); color: var(--panel); border-color: var(--accent); }
+button.primary:hover { color: var(--panel); filter: brightness(1.1); }
+.err { color: var(--bad); font-size: .88rem; min-height: 1.3em; margin: 8px 0 0; }
+
+.groups { display: flex; flex-direction: column; gap: 16px; }
+[hidden] { display: none !important; }
+.group.key { border-color: var(--accent); background: linear-gradient(var(--accent-soft), var(--accent-soft)) , var(--panel); }
+.group .formula { font-family: var(--font-mono); font-size: .85rem; color: var(--muted); margin: -6px 0 12px; }
+.cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.cell { display: flex; flex-direction: column; gap: 4px; }
+.cell .unit { text-align: right; }
+.cell.src input { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+@media (max-width: 520px) { .cells { grid-template-columns: 1fr 1fr; } }
+
+.opts { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+.opts .left { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: .9rem; color: var(--muted); }
+.opts select { font-size: .9rem; padding: 5px 8px; }
+.notes { font-size: .9rem; color: var(--muted); }
+.notes ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.notes code { font-family: var(--font-mono); font-size: .85rem; color: var(--ink); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Conductivity Calculator</h1>
+    <p class="sub">Type a resistance or conductivity value. The other box updates using the cell constant.</p>
+  </header>
+
+  <section class="card" aria-labelledby="k-h">
+    <h2 id="k-h">Cell constant</h2>
+    <div class="krow">
+      <div class="kfield">
+        <label for="k">Cell constant (K)</label>
+        <div class="inwrap"><input type="text" id="k" inputmode="decimal" value="1" autocomplete="off"></div>
+      </div>
+      <div class="kfield">
+        <label for="kunit">Unit</label>
+        <select id="kunit">
+          <option value="1">cm⁻¹</option>
+          <option value="0.01">m⁻¹</option>
+        </select>
+      </div>
+      <div class="kfield">
+        <span class="kl" style="font-size:.85rem;color:var(--muted)">Common values</span>
+        <div class="chips" id="presets">
+          <button type="button" data-k="0.1">0.1</button>
+          <button type="button" data-k="1">1</button>
+          <button type="button" data-k="10">10</button>
+        </div>
+      </div>
+    </div>
+    <p class="err" id="kerr" role="alert"></p>
+  </section>
+
+  <div class="groups" id="groups"></div>
+
+  <section class="card">
+    <div class="opts">
+      <div class="left">
+        <label>Significant digits
+          <select id="sig">
+            <option>1</option><option>2</option><option>3</option><option>4</option>
+            <option selected>5</option><option>6</option><option>7</option><option>8</option><option>9</option>
+          </select>
+        </label>
+        <label>Decimal sign
+          <select id="dec"><option value=".">Point</option><option value=",">Comma</option></select>
+        </label>
+      </div>
+      <button type="button" class="primary" id="reset">Reset</button>
+    </div>
+  </section>
+
+  <section class="card notes">
+    <strong style="color:var(--ink)">Formulas</strong>
+    <ul>
+      <li>Conductance: <code>G = 1 / R</code></li>
+      <li>Conductivity: <code>κ = G × K = K / R</code></li>
+      <li>Typing in a conductivity box gives <code>R = K / κ</code>, so the result depends on the cell constant you set above.</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+(function () {
+  // Base units: R in Ω, G in S, κ in S/cm, ρ in Ω·cm. K in cm⁻¹.
+  var GROUPS = [
+    { id: "R", title: "Electric resistance (R)", formula: "R = 1 / G",
+      units: [["Ω",1],["kΩ",1e3],["MΩ",1e6]] },
+    { id: "G", title: "Electric conductance (G)", formula: "G = 1 / R",
+      units: [["S",1],["mS",1e-3],["µS",1e-6]] },
+    { id: "C", title: "Conductivity (κ)", formula: "κ = G × K", key: true,
+      units: [["S/cm",1],["mS/cm",1e-3],["µS/cm",1e-6],["S/m",1e-2],["mS/m",1e-5],["µS/m",1e-8]] },
+    { id: "P", title: "Resistivity (ρ)", formula: "ρ = R × K",
+      units: [["Ω·cm",1],["kΩ·cm",1e3],["MΩ·cm",1e6]] }
+  ];
+  var sigEl = document.getElementById("sig"), decEl = document.getElementById("dec");
+  var kEl = document.getElementById("k"), kUnitEl = document.getElementById("kunit"), kErr = document.getElementById("kerr");
+  var host = document.getElementById("groups");
+  var fields = []; // {el, g, f, wrap}
+  var source = null; // {g, base}
+
+  GROUPS.forEach(function (grp) {
+    var sec = document.createElement("section");
+    sec.className = "card group" + (grp.key ? " key" : "");
+    if (grp.id === "G" || grp.id === "P") sec.hidden = true; // computed internally, not shown
+    var h = document.createElement("h2"); h.textContent = grp.title; sec.appendChild(h);
+    var fm = document.createElement("div"); fm.className = "formula"; fm.textContent = grp.formula; sec.appendChild(fm);
+    var cells = document.createElement("div"); cells.className = "cells"; sec.appendChild(cells);
+    grp.units.forEach(function (u, i) {
+      var wrap = document.createElement("div"); wrap.className = "cell";
+      var input = document.createElement("input");
+      input.type = "text"; input.inputMode = "decimal"; input.autocomplete = "off";
+      input.id = "f-" + grp.id + "-" + i;
+      input.setAttribute("aria-label", grp.title + " in " + u[0]);
+      var lab = document.createElement("label"); lab.className = "unit"; lab.htmlFor = input.id; lab.textContent = u[0];
+      wrap.appendChild(input); wrap.appendChild(lab); cells.appendChild(wrap);
+      var fld = { el: input, g: grp.id, f: u[1], wrap: wrap };
+      fields.push(fld);
+      input.addEventListener("input", function () { onEdit(fld); });
+    });
+    host.appendChild(sec);
+  });
+
+  function parse(s) {
+    s = String(s).trim().replace(/\s/g, "").replace(",", ".");
+    if (s === "") return null;
+    var n = Number(s);
+    return isNaN(n) ? NaN : n;
+  }
+  function fmt(x) {
+    if (x === null || x === undefined || isNaN(x)) return "";
+    if (x === Infinity) return "∞";
+    if (x === 0) return "0";
+    var n = Number(x.toPrecision(parseInt(sigEl.value, 10)));
+    var s = String(n);
+    return decEl.value === "," ? s.replace(".", ",") : s;
+  }
+  function getK() {
+    var v = parse(kEl.value);
+    if (v === null || isNaN(v) || v <= 0) return null;
+    return v * parseFloat(kUnitEl.value); // in cm^-1
+  }
+
+  function compute() {
+    var K = getK();
+    kErr.textContent = K === null ? "Enter a cell constant greater than 0." : "";
+    var out = { R: null, G: null, C: null, P: null };
+    if (!source) return out;
+    var b = source.base, G;
+    if (source.g === "G") G = b;
+    else if (source.g === "R") G = 1 / b;
+    else if (K === null) return out;
+    else if (source.g === "C") G = b / K;
+    else G = K / b;
+    out.G = G; out.R = 1 / G;
+    if (K !== null) { out.C = G * K; out.P = K / G; }
+    return out;
+  }
+
+  function render() {
+    var out = compute();
+    fields.forEach(function (fld) {
+      var isSrc = source && source.g === fld.g;
+      fld.wrap.classList.toggle("src", !!(isSrc && fld.el === document.activeElement));
+      if (document.activeElement === fld.el) return;
+      var base = out[fld.g];
+      fld.el.value = (base === null) ? "" : fmt(base / fld.f);
+    });
+  }
+
+  function onEdit(fld) {
+    var v = parse(fld.el.value);
+    if (v === null || isNaN(v) || v < 0) {
+      source = null;
+      fields.forEach(function (o) { if (o !== fld) o.el.value = ""; });
+      fld.wrap.classList.remove("src");
+      compute();
+      return;
+    }
+    source = { g: fld.g, base: v * fld.f };
+    render();
+    fld.wrap.classList.add("src");
+  }
+
+  fields.forEach(function (fld) {
+    fld.el.addEventListener("focus", function () { fld.wrap.classList.toggle("src", !!(source && source.g === fld.g)); });
+    fld.el.addEventListener("blur", function () { fld.wrap.classList.remove("src"); render(); });
+  });
+  kEl.addEventListener("input", render);
+  kUnitEl.addEventListener("change", render);
+  sigEl.addEventListener("change", render);
+  decEl.addEventListener("change", render);
+  document.getElementById("presets").addEventListener("click", function (e) {
+    var k = e.target && e.target.getAttribute("data-k");
+    if (!k) return;
+    kUnitEl.value = "1"; kEl.value = k; render();
+  });
+  document.getElementById("reset").addEventListener("click", function () {
+    kEl.value = "1"; kUnitEl.value = "1"; source = null;
+    fields.forEach(function (o) { o.el.value = ""; o.wrap.classList.remove("src"); });
+    compute();
+  });
+
+  // Starting example: 10 kΩ with K = 1 cm⁻¹
+  var start = fields.filter(function (f) { return f.g === "R" && f.f === 1e3; })[0];
+  start.el.value = "10";
+  onEdit(start);
+  start.wrap.classList.remove("src");
+})();
+</script>
+</body>
+</html>
