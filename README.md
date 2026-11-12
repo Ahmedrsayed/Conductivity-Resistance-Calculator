@@ -3,8 +3,7 @@
 حاسبة لتحويل قراءة المقاومة (Resistance) إلى التوصيلية (Conductivity) باستخدام ثابت الخلية (Cell Constant).
 مخصصة لمعايرة أجهزة قياس الـ Conductivity في المعمل، أو التحقق منها، باستخدام جهاز يقيس المقاومة.
 
-**الرابط:** https://ahmedrsayed.github.io/Conductivity/
-
+**الرابط:** https://ahmedrsayed.github.io/Conductivity-Resistance-Calculator/
 ---
 
 ## المعادلات
